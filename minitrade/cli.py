@@ -349,7 +349,7 @@ def init(yes):
     build_db_schema(minitrade_root)
 
     # download and extract IB gateway
-    install_ibgateway(minitrade_root)
+    # install_ibgateway(minitrade_root)
 
     # finish
     click.secho(f'Minitrade installed in {minitrade_root}', fg='green')
@@ -420,7 +420,7 @@ def check_prerequisites():
         click.secho('Checking prerequisites:')
         prerequisites = [
             check_program_version('java'),
-            check_program_version('google-chrome'),
+            # check_program_version('google-chrome'),
             check_selenium()
         ]
         if not all(prerequisites):
