@@ -5,6 +5,7 @@ module directly, e.g.
 
     from minitrade.backtest import Backtest, Strategy
 """
+from collections import UserDict
 import functools
 import multiprocessing as mp
 import os
@@ -42,6 +43,11 @@ __pdoc__ = {
     'Position.__init__': False,
     'Trade.__init__': False,
 }
+
+
+class HashableDict(UserDict):
+    def __hash__(self) -> int:
+        return hash(tuple(self.items()))
 
 
 class Allocation:
@@ -2214,11 +2220,6 @@ class Backtest:
             if len(param_combos) > 1000:
                 warnings.warn(f'Searching for best of {len(param_combos)} configurations.',
                               stacklevel=2)
-            # import ipdb
-            # ipdb.set_trace()
-
-            print('NEXT KEYS', next(iter(param_combos)).keys())
-
             heatmap = pd.Series(
                 np.nan,
                                 name=maximize_key,
@@ -2227,6 +2228,7 @@ class Backtest:
                     names=next(iter(param_combos)).keys(),
                 ),
             )
+            _full_results = {}
 
             def _batch(seq):
                 n = np.clip(int(len(seq) // (os.cpu_count() or 1)), 1, 300)
@@ -2251,31 +2253,22 @@ class Backtest:
                         for future in _tqdm(as_completed(futures), total=len(futures),
                                             desc='Backtest.optimize'):
                             batch_index, values, full_vals = future.result()
-                            for value, params in zip(values, param_batches[batch_index]):
-                                try:
-                                    hm_name = params.junk
-                                except AttributeError:
-                                    hm_name = tuple(params.values())
-
-                                print(value, params.values(), tuple(params.values()), hm_name)
+                            print('PBBI', param_batches[batch_index])
+                            for value, params, full_val in zip(values, param_batches[batch_index], full_vals):
+                                hm_name = tuple(params.values())
                                 heatmap[hm_name] = value
-                            print(
-                                'param_batches[batch_index]',
-                                type(param_batches[batch_index]),
-                                param_batches[batch_index],
-                                type(param_batches[batch_index][0]),
-                                param_batches[batch_index][0],
-                            )
-                            self._full_results[hm_name] = full_vals
+                                _full_results[hm_name] = full_val
+                            # _full_results[HashableDict(param_batches[batch_index])] = full_vals
                 else:
                     if os.name == 'posix':
                         warnings.warn("For multiprocessing support in `Backtest.optimize()` "
                                       "set multiprocessing start method to 'fork'.")
                     for batch_index in _tqdm(range(len(param_batches))):
                         _, values, full_vals = Backtest._mp_task(backtest_uuid, batch_index)
-                        for value, params in zip(values, param_batches[batch_index]):
-                            heatmap[tuple(params.values())] = value
-                        self._full_results[tuple(params.values())] = full_vals
+                        for value, params, full_val in zip(values, param_batches[batch_index], full_vals):
+                            hm_name = tuple(params.values())
+                            heatmap[hm_name] = value
+                            _full_results[hm_name] = full_val
             finally:
                 del Backtest._mp_backtests[backtest_uuid]
 
@@ -2289,8 +2282,8 @@ class Backtest:
                 stats = self.run(**dict(zip(heatmap.index.names, best_params)))
 
             if return_heatmap:
-                return stats, heatmap, self._full_results
-            return stats, self._full_results
+                return stats, heatmap, _full_results
+            return stats, _full_results
 
         def _optimize_skopt() -> Union[pd.Series,
                                        Tuple[pd.Series, pd.Series],
@@ -2397,9 +2390,8 @@ class Backtest:
         full_res = []
 
         for stats in (bt.run(**params) for params in param_batches[batch_index]):
-            print('mp_task', stats)
-            full_res.append(stats)
             max_res.append(maximize_func(stats) if stats['# Trades'] else np.nan)
+            full_res.append(copy(stats.to_dict()))
 
         return batch_index, max_res, full_res
 
