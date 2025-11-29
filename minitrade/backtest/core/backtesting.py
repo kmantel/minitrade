@@ -19,7 +19,7 @@ from functools import lru_cache, partial
 from itertools import chain, compress, product, repeat
 from math import copysign
 from numbers import Number
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -1687,6 +1687,8 @@ class _Broker:
                     if not need_size:
                         break
 
+            if abs(need_size) * adjusted_price > self.margin_available * self._leverage:
+                self._cash += (abs(need_size) * adjusted_price) - (self.margin_available * self._leverage) + 1
             # If we don't have enough liquidity to cover for the order, abort the backtest
             if abs(need_size) * adjusted_price > self.margin_available * self._leverage:
                 if self._fail_fast:
@@ -1925,6 +1927,7 @@ class Backtest:
         )
         self._strategy = strategy
         self._results: Optional[pd.Series] = None
+        self._full_results: Optional[Mapping[pd.Series]] = {}
 
         # equal weighed average, as if buy and hold an equal weighed portfolio
         weights = 1 / self._data.xs('Close', axis=1, level=1).iloc[0]
@@ -2145,7 +2148,7 @@ class Backtest:
         maximize_key = None
         if isinstance(maximize, str):
             maximize_key = str(maximize)
-            stats = self._results if self._results is not None else self.run()
+            stats = self._results if self._results is not None else self.run(**kwargs)
             if maximize not in stats:
                 raise ValueError('`maximize`, if str, must match a key in pd.Series '
                                  'result of backtest.run()')
@@ -2211,12 +2214,19 @@ class Backtest:
             if len(param_combos) > 1000:
                 warnings.warn(f'Searching for best of {len(param_combos)} configurations.',
                               stacklevel=2)
+            # import ipdb
+            # ipdb.set_trace()
 
-            heatmap = pd.Series(np.nan,
+            print('NEXT KEYS', next(iter(param_combos)).keys())
+
+            heatmap = pd.Series(
+                np.nan,
                                 name=maximize_key,
                                 index=pd.MultiIndex.from_tuples(
                                     [p.values() for p in param_combos],
-                                    names=next(iter(param_combos)).keys()))
+                    names=next(iter(param_combos)).keys(),
+                ),
+            )
 
             def _batch(seq):
                 n = np.clip(int(len(seq) // (os.cpu_count() or 1)), 1, 300)
@@ -2240,17 +2250,32 @@ class Backtest:
                                    for i in range(len(param_batches))]
                         for future in _tqdm(as_completed(futures), total=len(futures),
                                             desc='Backtest.optimize'):
-                            batch_index, values = future.result()
+                            batch_index, values, full_vals = future.result()
                             for value, params in zip(values, param_batches[batch_index]):
-                                heatmap[tuple(params.values())] = value
+                                try:
+                                    hm_name = params.junk
+                                except AttributeError:
+                                    hm_name = tuple(params.values())
+
+                                print(value, params.values(), tuple(params.values()), hm_name)
+                                heatmap[hm_name] = value
+                            print(
+                                'param_batches[batch_index]',
+                                type(param_batches[batch_index]),
+                                param_batches[batch_index],
+                                type(param_batches[batch_index][0]),
+                                param_batches[batch_index][0],
+                            )
+                            self._full_results[hm_name] = full_vals
                 else:
                     if os.name == 'posix':
                         warnings.warn("For multiprocessing support in `Backtest.optimize()` "
                                       "set multiprocessing start method to 'fork'.")
                     for batch_index in _tqdm(range(len(param_batches))):
-                        _, values = Backtest._mp_task(backtest_uuid, batch_index)
+                        _, values, full_vals = Backtest._mp_task(backtest_uuid, batch_index)
                         for value, params in zip(values, param_batches[batch_index]):
                             heatmap[tuple(params.values())] = value
+                        self._full_results[tuple(params.values())] = full_vals
             finally:
                 del Backtest._mp_backtests[backtest_uuid]
 
@@ -2264,8 +2289,8 @@ class Backtest:
                 stats = self.run(**dict(zip(heatmap.index.names, best_params)))
 
             if return_heatmap:
-                return stats, heatmap
-            return stats
+                return stats, heatmap, self._full_results
+            return stats, self._full_results
 
         def _optimize_skopt() -> Union[pd.Series,
                                        Tuple[pd.Series, pd.Series],
@@ -2368,9 +2393,15 @@ class Backtest:
     @ staticmethod
     def _mp_task(backtest_uuid, batch_index):
         bt, param_batches, maximize_func = Backtest._mp_backtests[backtest_uuid]
-        return batch_index, [maximize_func(stats) if stats['# Trades'] else np.nan
-                             for stats in (bt.run(**params)
-                                           for params in param_batches[batch_index])]
+        max_res = []
+        full_res = []
+
+        for stats in (bt.run(**params) for params in param_batches[batch_index]):
+            print('mp_task', stats)
+            full_res.append(stats)
+            max_res.append(maximize_func(stats) if stats['# Trades'] else np.nan)
+
+        return batch_index, max_res, full_res
 
     _mp_backtests: Dict[float, Tuple['Backtest', List, Callable]] = {}
 
