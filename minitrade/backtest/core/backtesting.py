@@ -2222,9 +2222,9 @@ class Backtest:
                               stacklevel=2)
             heatmap = pd.Series(
                 np.nan,
-                                name=maximize_key,
-                                index=pd.MultiIndex.from_tuples(
-                                    [p.values() for p in param_combos],
+                name=maximize_key,
+                index=pd.MultiIndex.from_tuples(
+                    [p.values() for p in param_combos],
                     names=next(iter(param_combos)).keys(),
                 ),
             )
