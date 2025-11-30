@@ -51,8 +51,8 @@ class HashableDict(UserDict):
 
 
 class Allocation:
-    '''The `Allocation` class manages the allocation of values among different assets in a portfolio. It provides 
-    methods for creating and managing asset buckets, assigning weights to assets, and merging the weights into the 
+    '''The `Allocation` class manages the allocation of values among different assets in a portfolio. It provides
+    methods for creating and managing asset buckets, assigning weights to assets, and merging the weights into the
     parent allocation object.
 
     `Allocation` is not meant to be instantiated directly. Instead, it is created automatically when a new
@@ -71,9 +71,9 @@ class Allocation:
 
     `Allocation` provides two ways to assign weights to assets:
 
-    1. Explicitly assign weights to assets using `Allocation.weights` property. 
+    1. Explicitly assign weights to assets using `Allocation.weights` property.
 
-        It's possible to assign weights to individual asset or to all assets in the asset space as a whole. Not all weights 
+        It's possible to assign weights to individual asset or to all assets in the asset space as a whole. Not all weights
         need to be specified. If an asset is not assigned a weight, it will have a weight of 0.
 
         Example:
@@ -89,7 +89,7 @@ class Allocation:
 
         A `Bucket` is a container that groups assets together and provieds methods for weight allocation. Assets can be added
         to the bucket by appending lists or filtering conditions. Weights can be assigned to the assets in the bucket using
-        different allocation methods. Multiple buckets can be created for different groups of assets. Once the weight 
+        different allocation methods. Multiple buckets can be created for different groups of assets. Once the weight
         allocation is done at bucket level , the weights of the buckets can be merged into those of the parent allocation object.
 
         Example:
@@ -108,17 +108,17 @@ class Allocation:
     The state of the `Allocation` object is managed by the `Strategy` object across rebalance cycles. A rebalance
     cycle involves:
 
-    1. Initializing the weight allocation at the beginning of the cycle by calling either `Allocation.assume_zero()` 
+    1. Initializing the weight allocation at the beginning of the cycle by calling either `Allocation.assume_zero()`
     to reset all weights to zero or `Allocation.assume_previous()` to inherit the weights from the previous cycle. This
     must be done before any weight allocation attempts.
     2. Adjusting the weight allocation using either explicitly assignment or `Bucket` method.
     3. Calling `Strategy.rebalance()` to rebalance the portfolio according to the current allocation plan.
 
     After each rebalance cycle, the weight allocation is reset, and the process starts over. At any point, the weight
-    allocation from the previous cycle can be accessed using the `previous_weights` property. 
+    allocation from the previous cycle can be accessed using the `previous_weights` property.
 
-    A rebalance cycle is not necessarily equal to the simulation time step. For example, simulation can be done at 
-    daily frequency, while the portfolio is rebalanced every month. In this case, the weight allocation is maintained 
+    A rebalance cycle is not necessarily equal to the simulation time step. For example, simulation can be done at
+    daily frequency, while the portfolio is rebalanced every month. In this case, the weight allocation is maintained
     across multiple time steps until the next time `Strategy.rebalance()` is called.
 
     Example:
@@ -147,14 +147,14 @@ class Allocation:
         associated with multiple buckets.
 
         Assets in a bucket are identified by their tickers. They are unique within the bucket, but can be
-        repeated in different buckets. 
+        repeated in different buckets.
 
-        Using `Bucket` for weight allocation takes 3 steps: 
+        Using `Bucket` for weight allocation takes 3 steps:
 
-        1. Assets are added to the bucket by appending lists or filtering conditions. The rank of the assets 
-        in the bucket is preserved and can be used to assign weights. 
-        2. Weights are assigned to the assets using different allocation methods. 
-        3. Once the weight allocation at bucket level is done, the weights of the bucket can be merged into 
+        1. Assets are added to the bucket by appending lists or filtering conditions. The rank of the assets
+        in the bucket is preserved and can be used to assign weights.
+        2. Weights are assigned to the assets using different allocation methods.
+        3. Once the weight allocation at bucket level is done, the weights of the bucket can be merged into
         those of the parent allocation object.
         '''
 
@@ -186,11 +186,11 @@ class Allocation:
             2. A boolean Series with assets as the index and a True value to indicate the asset should be added.
             3. A non-boolean Series with assets as the index and all assets in the index will be added.
 
-            The rank of the assets is determined by its order in the list or in the index. The rank of the assets 
+            The rank of the assets is determined by its order in the list or in the index. The rank of the assets
             in the bucket is preserved. If an asset is already in the bucket, its rank in bucket will not be affected
             by appending new list to the bucket, even if the asset is ranked differently in the new list.
 
-            Multiple conditions can be specified as filters to exclude certain assets in the ranked list from being 
+            Multiple conditions can be specified as filters to exclude certain assets in the ranked list from being
             added. Assets must satisfy all the conditions in order to be added to the bucket.
 
             `conditions` can be specified in the same way as `ranked_list`, only that the asset order in a condition
@@ -319,7 +319,7 @@ class Allocation:
             ```
 
             Args:
-                sum_: Total weight that should be allocated. 
+                sum_: Total weight that should be allocated.
             '''
             assert sum_ is None or 0 <= sum_ < 1.000000000000001, 'Total weight should be within [0, 1].'
             if sum_ is None:
@@ -342,7 +342,7 @@ class Allocation:
 
             Args:
                 relative_weights: A list of relative weights. The length of the list should be the same as the number of assets in the bucket.
-                sum_: Total weight that should be allocated. 
+                sum_: Total weight that should be allocated.
             '''
             assert len(relative_weights) == len(
                 self._tickers), f'Length of relative_weight {len(relative_weights)} does not match number of assets {len(self._tickers)}'
@@ -362,13 +362,13 @@ class Allocation:
             `method` controls how the bucket weight allocation should be merged into the parent allocation object.
 
             When `method` is `update`, the weights of assets in the bucket will update the weights of the same assets
-            in the parent allocation object. If an asset is not in the bucket, its weight in the parent allocation object 
+            in the parent allocation object. If an asset is not in the bucket, its weight in the parent allocation object
             will not be changed. This is the default method.
 
-            When `method` is `overwrite`, the weights of the parent allocation object will be replaced by the weights of the 
+            When `method` is `overwrite`, the weights of the parent allocation object will be replaced by the weights of the
             assets in the bucket or set to 0 if the asset is not in the bucket.
 
-            When `method` is `accumulate`, the weights of the assets in the bucket will be added to the weights of the same 
+            When `method` is `accumulate`, the weights of the assets in the bucket will be added to the weights of the same
             assets, while the weights of the assets not in the bucket will remain unchanged.
 
             If the bucket is empty, no change will be made to the parent allocation object.
@@ -377,7 +377,7 @@ class Allocation:
             is merged. It is the responsibility of the user to ensure the final weights are valid before use.
 
             Args:
-                method: Method to merge the bucket into the parent allocation object. 
+                method: Method to merge the bucket into the parent allocation object.
                     Available methods are 'update', 'overwrite', 'accumulate'.
             '''
             if self._weights is None:
@@ -504,7 +504,7 @@ class Allocation:
         return self._previous_weights.copy()
 
     def assume_zero(self):
-        '''Assume all assets have zero weight to begin with in a new rebalance cycle. 
+        '''Assume all assets have zero weight to begin with in a new rebalance cycle.
         '''
         self._weights = pd.Series(0., index=self.tickers)
 
@@ -602,7 +602,7 @@ class Strategy(ABC):
         same length as `minitrade.backtest.core.backtesting.Strategy.data`, or
         the indicator array(s) itself as a DataFrame, Series, or arrays.
 
-        In the plot legend, the indicator is labeled with function name, 
+        In the plot legend, the indicator is labeled with function name,
         DataFrame column name, or Series name, unless `name` overrides it.
 
         If `plot` is `True`, the indicator is plotted on the resulting
@@ -611,7 +611,7 @@ class Strategy(ABC):
         If `overlay` is `True`, the indicator is plotted overlaying the
         price candlestick chart (suitable e.g. for moving averages).
         If `False`, the indicator is plotted standalone below the
-        candlestick chart. 
+        candlestick chart.
 
         `color` can be string hex RGB triplet or X11 color name.
         By default, the next available color is assigned.
@@ -757,39 +757,39 @@ class Strategy(ABC):
 
         If the weight allocation is not changed from the previous cycle, the rebalance is skipped. This behavior can be
         overridden by setting `force` to `True`, which will force rebalance even if the weight allocation is unchanged.
-        This is useful when the actual portfolio value deviates from the target value due to price changes and should 
+        This is useful when the actual portfolio value deviates from the target value due to price changes and should
         be corrected.
 
-        When a rebalance should be performed, the difference between the target and actual portfolio, defined as the sum 
+        When a rebalance should be performed, the difference between the target and actual portfolio, defined as the sum
         of absolute difference of individual assets, is calculated. If the difference is too small compared to the
         relative tolerance `rtol` or the absolute tolerance `atol`, the rebalance is again skipped. This can be used
-        to avoid unnecessary transaction cost. An exception is when the target weight of an asset is zero, in which case 
+        to avoid unnecessary transaction cost. An exception is when the target weight of an asset is zero, in which case
         the position of the asset, if exists, is always closed.
 
         `cash_reserve` is the ratio of total equity reserved as cash to account for order quantity rounding and sudden
         price changes between order placement and execution. It is recommended to set this value to a small positive
-        number to avoid order rejection due to insufficient cash. The minimum value may depend on the volatility of the 
+        number to avoid order rejection due to insufficient cash. The minimum value may depend on the volatility of the
         assets.
 
         Args:
             force: If True, rebalance will be performed even if the current weight allocation
                 is not changed from the previous.
-            rtol: Relative tolerance of the total absolute value difference between current 
-                and previous allocation vs. total portfolio value. If the difference is smaller 
+            rtol: Relative tolerance of the total absolute value difference between current
+                and previous allocation vs. total portfolio value. If the difference is smaller
                 than `rtol`, rebalance will not be performed.
-            atol: Absolute tolerance of the total absolute value difference between current 
-                and previous allocation. If the difference is smaller than `atol`, rebalance 
+            atol: Absolute tolerance of the total absolute value difference between current
+                and previous allocation. If the difference is smaller than `atol`, rebalance
                 will not be performed.
-            cash_reserve: Ratio of total equity reserved as cash to account for order 
+            cash_reserve: Ratio of total equity reserved as cash to account for order
                 quantity rounding and sudden price changes between order placement and
-                execution. 
+                execution.
         """
         self._broker.rebalance(alloc=self._alloc, force=force, rtol=rtol, atol=atol, cash_reserve=cash_reserve)
 
     def record(self, name: str = None, plot: bool = True, overlay: bool = None, color: str = None, scatter: bool = False, **kwargs):
         """
         Record arbitrary key-value pairs as time series. This can be used for diagnostic
-        data collection or for plotting custom data. 
+        data collection or for plotting custom data.
 
         Values to be recorded should be passed as keyword arguments. The value can be a scalar, a dictionary, or a
         pandas Series. If a dictionary or a Series is passed, its keys will be used as names for time series.
@@ -865,15 +865,15 @@ class Strategy(ABC):
     @property
     def storage(self) -> dict | None:
         """Storage is a dictionary for saving custom data across backtest runs
-        when used in the context of automated trading in incremental mode. 
+        when used in the context of automated trading in incremental mode.
 
-        If backtest finishes successfully, any modification to the dictionary 
-        is persisted and can be accessed in future runs. If backtest fails due 
-        to any error, the modification is not saved. If backtest runs in dryrun 
+        If backtest finishes successfully, any modification to the dictionary
+        is persisted and can be accessed in future runs. If backtest fails due
+        to any error, the modification is not saved. If backtest runs in dryrun
         mode, the modification is not saved.
 
-        No storage is provided when trading in "strict" mode, in which case `storage` 
-        is None. 
+        No storage is provided when trading in "strict" mode, in which case `storage`
+        is None.
         """
         return self._broker._storage
 
@@ -908,11 +908,11 @@ class Strategy(ABC):
     def start_on_day(self, n: int):
         """Hint to start the backtest on a specific day.
 
-        This can be used to define a warm-up period, ensuring at least `n` days of data 
-        are available when `next()` is called for the first time. 
+        This can be used to define a warm-up period, ensuring at least `n` days of data
+        are available when `next()` is called for the first time.
 
-        When the backtest starts depends both on `n` and on the availability of indicators. 
-        If indicators are defined, the backtest will start when all indicators have 
+        When the backtest starts depends both on `n` and on the availability of indicators.
+        If indicators are defined, the backtest will start when all indicators have
         valid data or on the `n`-th day, whichever comes later.
 
         This method should be called in `init()`.
@@ -1810,7 +1810,7 @@ class Backtest:
         Initialize a backtest. Requires data and a strategy to test.
 
         `data` is a `pd.DataFrame` with 2-level columns:
-        1st level is a list of tickers, and 
+        1st level is a list of tickers, and
         2nd level is `Open`, `High`, `Low`, `Close`, and `Volume`.
         If the strategy works only on one asset, the 1st level can be dropped.
         If any columns are missing, set them to what you have available,
@@ -1829,8 +1829,8 @@ class Backtest:
 
         `cash` is the initial cash to start with.
 
-        `holding` is a mapping of preexisting assets and their sizes before 
-        backtest begins, e.g. 
+        `holding` is a mapping of preexisting assets and their sizes before
+        backtest begins, e.g.
 
             {'AAPL': 10, 'MSFT': 5}
 
@@ -1860,17 +1860,17 @@ class Backtest:
         If `trade_start_date` is not None, orders generated before the date are
         surpressed and ignored in backtesting.
 
-        `lot_size` is the minimum increment of shares you buy in one order. Order 
+        `lot_size` is the minimum increment of shares you buy in one order. Order
         size will be rounded to integer multiples during rebalance.
 
         `fail_fast`, when True, instructs the backtester to bail out when
         cash is not enough to cover an order. This can be used in live trading
-        to detect issues early. If False, backtesting will ignore the order and 
+        to detect issues early. If False, backtesting will ignore the order and
         continue, which can be convenient during algorithm research.
 
-        `storage`, when not None, is a dictionary that contains saved states from 
-        past runs. Modification to storage is persisted and can be made available 
-        for future runs. 
+        `storage`, when not None, is a dictionary that contains saved states from
+        past runs. Modification to storage is persisted and can be made available
+        for future runs.
 
         [FIFO]: https://www.investopedia.com/terms/n/nfa-compliance-rule-2-43b.asp
         """
@@ -2483,7 +2483,7 @@ class Backtest:
         opened in the default web browser.
 
         If `plot_allocation` is `True`, the resulting plot will contain
-        an equity allocation graph section. 
+        an equity allocation graph section.
 
         If `relative_allocation` is `True`, scale and label equity allocation graph axis
         with return percent, not absolute cash-equivalent values.
