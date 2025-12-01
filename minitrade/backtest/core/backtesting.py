@@ -18,7 +18,7 @@ from copy import copy
 from datetime import datetime
 from functools import lru_cache, partial
 from itertools import chain, compress, product, repeat
-from math import copysign
+from math import copysign, floor
 from numbers import Number
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
@@ -1667,7 +1667,7 @@ class _Broker:
                 else:
                     # replace relative size with calculated size
                     order.size = int(size)
-            assert size == round(size)
+            assert size == floor(size)
             need_size = int(size)
 
             if not self._hedging:
