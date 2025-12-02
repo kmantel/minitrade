@@ -20,7 +20,7 @@ from functools import lru_cache, partial
 from itertools import chain, compress, product, repeat
 from math import copysign, floor
 from numbers import Number
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -2081,6 +2081,7 @@ class Backtest:
                  return_heatmap: bool = False,
                  return_optimization: bool = False,
                  random_state: Optional[int] = None,
+                 param_combos: Optional[Dict[str, float]] = None,
                  **kwargs) -> Union[pd.Series,
                                     Tuple[pd.Series, pd.Series],
                                     Tuple[pd.Series, pd.Series, dict]]:
@@ -2148,7 +2149,7 @@ class Backtest:
         .. TODO::
             Improve multiprocessing/parallel execution on Windos with start method 'spawn'.
         """
-        if not kwargs:
+        if not kwargs and not param_combos:
             raise ValueError('Need some strategy parameters to optimize')
 
         maximize_key = None
@@ -2203,17 +2204,30 @@ class Backtest:
                            if constraint(AttrDict(p)))
             return size
 
-        def _optimize_grid() -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
-            rand = default_rng(random_state).random
-            grid_frac = (1 if max_tries is None else
-                         max_tries if 0 < max_tries <= 1 else
-                         max_tries / _grid_size())
-            param_combos = [dict(params)  # back to dict so it pickles
-                            for params in (AttrDict(params)
-                                           for params in product(*(zip(repeat(k), _tuple(v))
-                                                                   for k, v in kwargs.items())))
-                            if constraint(params)  # type: ignore
-                            and rand() <= grid_frac]
+        def _optimize_grid(
+            param_combos: Iterable[Dict[str, float]] = None,
+        ) -> Union[pd.Series, Tuple[pd.Series, pd.Series]]:
+            if param_combos is None:
+                rand = default_rng(random_state).random
+                grid_frac = (
+                    1
+                    if max_tries is None
+                    else max_tries
+                    if 0 < max_tries <= 1
+                    else max_tries / _grid_size()
+                )
+                param_combos = [
+                    dict(params)  # back to dict so it pickles
+                    for params in (
+                        AttrDict(params)
+                        for params in product(
+                            *(zip(repeat(k), _tuple(v)) for k, v in kwargs.items())
+                        )
+                    )
+                    if constraint(params)  # type: ignore
+                    and rand() <= grid_frac
+                ]
+
             if not param_combos:
                 raise ValueError('No admissible parameter combinations to test')
 
@@ -2375,12 +2389,15 @@ class Backtest:
 
             return stats if len(output) == 1 else tuple(output)
 
+        methods = {'grid', 'skopt', 'param_combos'}
         if method == 'grid':
             output = _optimize_grid()
         elif method == 'skopt':
             output = _optimize_skopt()
+        elif method == 'param_combos':
+            output = _optimize_grid(param_combos)
         else:
-            raise ValueError(f"Method should be 'grid' or 'skopt', not {method!r}")
+            raise ValueError(f"Method should be one of {methods}, not {method!r}")
         return output
 
     @ staticmethod
