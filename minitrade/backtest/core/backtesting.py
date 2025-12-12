@@ -1762,7 +1762,8 @@ class _Broker:
         if trade._tp_order:
             self.orders.remove(trade._tp_order)
 
-        self.closed_trades.append(trade._replace(exit_price=price, exit_bar=time_index))
+        trade_repl = trade._replace(exit_price=price, exit_bar=time_index)
+        self.closed_trades.append(trade_repl)
         self._cash += trade.pl
 
     def _open_trade(self, ticker: str, price: float, size: int,
@@ -2234,14 +2235,16 @@ class Backtest:
             if len(param_combos) > 1000:
                 warnings.warn(f'Searching for best of {len(param_combos)} configurations.',
                               stacklevel=2)
-            heatmap = pd.Series(
-                np.nan,
-                name=maximize_key,
-                index=pd.MultiIndex.from_tuples(
-                    [p.values() for p in param_combos],
-                    names=next(iter(param_combos)).keys(),
-                ),
-            )
+
+            if return_heatmap:
+                heatmap = pd.Series(
+                    np.nan,
+                    name=maximize_key,
+                    index=pd.MultiIndex.from_tuples(
+                        [p.values() for p in param_combos],
+                        names=next(iter(param_combos)).keys(),
+                    ),
+                )
             _full_results = {}
 
             def _batch(seq):
@@ -2267,10 +2270,11 @@ class Backtest:
                         for future in _tqdm(as_completed(futures), total=len(futures),
                                             desc='Backtest.optimize'):
                             batch_index, values, full_vals = future.result()
-                            print('PBBI', param_batches[batch_index])
+                            # print('PBBI', param_batches[batch_index])
                             for value, params, full_val in zip(values, param_batches[batch_index], full_vals):
                                 hm_name = tuple(params.values())
-                                heatmap[hm_name] = value
+                                if return_heatmap:
+                                    heatmap[hm_name] = value
                                 _full_results[hm_name] = full_val
                             # _full_results[HashableDict(param_batches[batch_index])] = full_vals
                 else:
@@ -2281,23 +2285,25 @@ class Backtest:
                         _, values, full_vals = Backtest._mp_task(backtest_uuid, batch_index)
                         for value, params, full_val in zip(values, param_batches[batch_index], full_vals):
                             hm_name = tuple(params.values())
-                            heatmap[hm_name] = value
+                            if return_heatmap:
+                                heatmap[hm_name] = value
                             _full_results[hm_name] = full_val
             finally:
                 del Backtest._mp_backtests[backtest_uuid]
 
-            best_params = heatmap.idxmax()
-
-            if pd.isnull(best_params):
-                # No trade was made in any of the runs. Just make a random
-                # run so we get some, if empty, results
-                stats = self.run(**param_combos[0])
-            else:
-                stats = self.run(**dict(zip(heatmap.index.names, best_params)))
-
             if return_heatmap:
-                return stats, heatmap, _full_results
-            return stats, _full_results
+                best_params = pd.Series(_full_results.loc[maximize_key]).idxmax()
+
+                if pd.isnull(best_params):
+                    # No trade was made in any of the runs. Just make a random
+                    # run so we get some, if empty, results
+                    stats = self.run(**param_combos[0])
+                else:
+                    stats = self.run(**dict(zip(heatmap.index.names, best_params)))
+
+                    return stats, heatmap, _full_results
+            else:
+                return _full_results
 
         def _optimize_skopt() -> Union[pd.Series,
                                        Tuple[pd.Series, pd.Series],

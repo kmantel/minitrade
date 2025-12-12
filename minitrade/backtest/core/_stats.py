@@ -169,11 +169,15 @@ def compute_stats(
     s.loc['SQN'] = np.sqrt(n_trades) * pl.mean() / (pl.std() or np.nan)
     s.loc['Kelly Criterion'] = win_rate - (1 - win_rate) / (pl[pl > 0].mean() / -pl[pl < 0].mean())
 
-    s.loc['_strategy'] = strategy_instance
+    try:
+        s.loc['_allocation'] = dict(strategy_instance.allocation)
+    except AttributeError as e:
+        print(f'fail extract alloc {e}')
+        s.loc['_strategy'] = strategy_instance
     s.loc['_equity_curve'] = equity_df
-    s.loc['_trades'] = trades_df
+    s.loc['_trades'] = []
     s.loc['_orders'] = orders_df
-    s.loc['_positions'] = positions
+    s.loc['_positions'] = []
     s.loc['_trade_start_bar'] = trade_start_bar
 
     s = _Stats(s)
